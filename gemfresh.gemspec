@@ -8,9 +8,9 @@ Gem::Specification.new do |s|
   s.summary     = 'Checks the freshness of your Gemfile.'
   s.description = 'Scans Gemfiles to check for obsolete and updateable gems.'
 
-  s.files         = ['gemspec.rb', 'bin/gemspec']
-  s.test_files    = []
-  s.executables   = ['gemspec']
+  s.files         = `git ls-files`.split("\n")
+  s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
+  s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ['.']
 
   s.add_runtime_dependency 'bundler', '~> 1.0.18'
