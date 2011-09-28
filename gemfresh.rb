@@ -1,6 +1,8 @@
 require 'net/http'
 require 'rubygems'
 require 'bundler'
+require 'time'
+require File.dirname(__FILE__) + '/support'
 
 # Handle ARGV
 if ARGV.include?('--help') 
@@ -90,7 +92,7 @@ end
 print "Hitting up your RubyGems sources: "
 dep_specs.each do |dep, spec|
   name = dep.name
-  version = spec.version.to_s
+  # version = spec.version.to_s
   
   # Get a connection to the rubygem repository, reusing if we can
   remote = spec.source.remotes.first
@@ -100,66 +102,91 @@ dep_specs.each do |dep, spec|
   
   # Get the RubyGems data
   # lookup = RubyGems.get("/api/v1/gems/#{name}.yaml")
-  lookup = reader.get("/api/v1/gems/#{name}.yaml")
-  lookup = YAML.load(lookup)
-  current = lookup["version"].to_s
+  gemdata = reader.get("/api/v1/gems/#{name}.yaml")
+  gemdata = YAML.load(gemdata)
+
+  # Get the versions list as well
+  versions = reader.get("/api/v1/versions/#{name}.yaml")
+  versions = YAML.load(versions)
+  
+  # Store the result as a diff object
+  diff = SpecDiff.new(dep, spec, gemdata, versions)
+  results[diff.classify] << diff
+  
+  # Stats
+  prereleases +=1 if diff.prerelease?
+  count += 1
+  
+  # Get the dates of the given and current versions
+  # version_date = versions.find { |v| v['number'] == version }
+  # version_date = Time.parse(version_date['built_at']) unless version_date.nil?
+  # current_date = versions.find { |v| v['number'] == current }
+  # current_date = Time.parse(current_date['built_at']) unless current_date.nil?
   
   # Exact match or directly updatable? If so, we can move on
-  prerelease = false
-  match = case
-  when (version == current) then :current
-  when (dep.match?(dep.name, current)) then :update
-  else nil
-  end
-  
-  # Not exact or updatable - we need to check if you're on a pre-release version
-  if match.nil?
-    match = :obsolete
-    versions = reader.get("/api/v1/versions/#{name}.yaml")
-    versions = YAML.load(versions).select { |v| v['prerelease']}.map { |v| v['number'] }
-    prerelease = versions.include?(version)
-    # If it's a prerelease determine what kind
-    if prerelease
-      prereleases += 1
-      current = versions.first # Big assumption
-      match = case
-      when (version == current) then :current
-      when (dep.match?(dep.name, current)) then :update
-      else :obsolete
-      end
-    end
-  end
+  # prerelease = false
+  # match = case
+  # when (version == current) then :current
+  # when (dep.match?(dep.name, current)) then :update
+  # else nil
+  # end
+  # 
+  # # Not exact or updatable - we need to check if you're on a pre-release version
+  # if match.nil?
+  #   match = :obsolete
+  #   versions = versions.select { |v| v['prerelease']}.map { |v| v['number'] }
+  #   prerelease = versions.include?(version)
+  #   # If it's a prerelease determine what kind
+  #   if prerelease
+  #     prereleases += 1
+  #     current = versions.first # Big assumption
+  #     match = case
+  #     when (version == current) then :current
+  #     when (dep.match?(dep.name, current)) then :update
+  #     else :obsolete
+  #     end
+  #   end
+  # end
   
   # Got our result
-  results[match] << [dep, spec, current, prerelease]  
-  count += 1
+  # results[match] << SpecDiff.new(dep, spec, versions)
+  # [dep, spec, current, prerelease, version_date, current_date]  
   print "."
   STDOUT.flush
 end
 puts " Done!"
 
-# Warn the user about prereleases
+# Let the user about prereleases
 if prereleases > 0
   puts "\nYou have #{prereleases} prerelease gem#{prereleases == 1 ? '' : 's'}. Prereleases will be marked with a '*'."
+end
+
+# Output Gem Ages
+puts "\nThe following Gems are:"
+ages = results.values.flatten.group_by(&:build_age)
+{:month1 => 'less than a month', :month6 => '6 months or less', :year1 => 'less than a year', :more => 'more than a year'}.each_pair do |key, value|
+  next if ages[key].nil?
+  puts "-- #{value} old:"
+  puts ages[key].map(&:to_s).join(', ')
 end
 
 # Output Current Gems
 if results[:current].empty?
   puts "\nYou don't have any current gems."
 else
-  puts "\nThe following gems are current: "
-  puts results[:current].map { |dep, spec, current, prerelease| "#{spec}#{prerelease ? '*' : ''}" }.join(', ')
+  puts "\nThe following gems at the most current version: "
+  puts results[:current].map(&:to_s).join(', ')
 end
 
 # Output Updatable Gems
 if results[:update].empty?
   puts "\nYou don't have any updatable gems."
 else
-  puts "\nThe following gems are locked to older versions, but the spec allows for a later version: "
-  results[:update].each do |dep, spec, current, prerelease| 
-    pre = prerelease ? '*' : ''
-    puts "    #{spec}#{pre}, with #{dep.requirement} could allow #{current}"
+  puts "\nThe following gems are locked to older versions, but your Gemfile allows for the current version: "
+  results[:update].each do |diff| 
+    puts "    #{diff}, with #{diff.dep.requirement} could allow #{diff.version_available}"
   end
+  puts "Barring dependency issues, these gems could be updated to current using 'bundle update'."
 end
 
 # Output Obsolete Gems
@@ -167,8 +194,41 @@ if results[:obsolete].empty?
   puts "\nYou don't have any obsolete gems."
 else
   puts "\nThe following gems are obsolete: "
-  results[:obsolete].each do |dep, spec, current, prerelease|
-    pre = prerelease ? '*' : ''
-    puts "    #{spec}#{pre} is outdated - now at #{current}"
+  results[:obsolete].each do |diff|
+    released = diff.version_build_date(diff.version_available)
+    released = released.nil? ? '.' : ", #{released.strftime('%d %b %Y')}."
+
+    suggest = diff.suggest
+    suggest = suggest.nil? ? '' : "Also consider version #{suggest}."
+    
+    puts "    #{diff} is now at #{diff.version_available}#{released} #{suggest}"    
   end
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
