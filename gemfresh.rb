@@ -14,13 +14,17 @@ if ARGV.include?('--help')
   your current directory. Generally you'll simply invoke gemfresh from your 
   Rails (or similar) project directory.
     
-  Gemfresh will list three categories of gems. "Current" gems are up-to-date.
-  "Obsolete" gems 
+  Gemfresh will list three categories of gems:
+    
+    "Current" gems are up-to-date.
+    
+    "Obsolete" gems have a newer version than the one specified in your Gemfile
   
-  "Updateable" gems that have a 'fuzzy' gemspec - e.g. '~> 2.2.0' is a fuzzy
-  match for 2.2.1, 2.2.2, etc. Running bundle update will attempt to update
-  your gems. If something is listed at updateable, you have an older version
-  - e.g. "2.2.1", when the current is "2.2.2".
+    "Updateable" gems have a newer version, and it is within the version in your Gemfile
+    e.g. Gemfile:      '~> 2.2.0'
+         Gemfile.lock: 2.2.1
+         Latest:       2.2.2
+    Running bundle update will attempt to update these gems.
 
   Just because a gem is updateable or obsolete, doesn't mean it can be 
   updated. There might be dependencies that limit you to specific versions.
@@ -63,7 +67,7 @@ class RubyGemReader < Struct.new('RubyGemReader', :uri)
   end
 end
 
-# Start in earnets
+# Start in earnest
 puts "Checking the freshness of your Gemfile.\n"
 
 # Get the data from bundler
@@ -121,7 +125,7 @@ dep_specs.each do |dep, spec|
 end
 puts " Done!"
 
-# Let the user about prereleases
+# Let the user know about prereleases
 if prereleases > 0
   puts "\nYou have #{prereleases} prerelease gem#{prereleases == 1 ? '' : 's'}. Prereleases will be marked with a '*'."
 end
@@ -169,31 +173,3 @@ else
     puts "    #{diff} is now at #{diff.version_available}#{released} #{suggest}"    
   end
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
