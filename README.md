@@ -20,4 +20,4 @@ information on what this means, run gemfresh with the --help option:
 ## License
 MIT Licensed. See MIT-LICENSE.txt for more information.
 
-Thanks [@jonathannen](http://twitter.com/jonathannen).
+Thanks, [@jonathannen](http://twitter.com/jonathannen).
