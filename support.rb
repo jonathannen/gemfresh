@@ -12,7 +12,7 @@ class SpecDiff < Struct.new(:dep, :spec, :gemdata, :versions)
   # build age of the available version
   def build_age
     build_date = version_build_date(version_in_use)
-    return :more if build_date.nil?
+    return :none if build_date.nil?
     days = ((Time.now.utc - build_date)/(24 * 60 * 60)).round
     case
     when days < 31  then :month1
@@ -65,7 +65,9 @@ class SpecDiff < Struct.new(:dep, :spec, :gemdata, :versions)
   # Return the build date for a given version string (e.g. '1.2.1')
   def version_build_date(version)
     return nil if versions.nil? || versions.empty?
-    version_date = version_data(version)['built_at']
+    data = version_data(version)
+    return nil if data.nil?
+    version_date = data['built_at']
     version_date.nil? ? nil : Time.parse(version_date)
   end
   

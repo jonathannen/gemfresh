@@ -116,41 +116,6 @@ dep_specs.each do |dep, spec|
   # Stats
   prereleases +=1 if diff.prerelease?
   count += 1
-  
-  # Get the dates of the given and current versions
-  # version_date = versions.find { |v| v['number'] == version }
-  # version_date = Time.parse(version_date['built_at']) unless version_date.nil?
-  # current_date = versions.find { |v| v['number'] == current }
-  # current_date = Time.parse(current_date['built_at']) unless current_date.nil?
-  
-  # Exact match or directly updatable? If so, we can move on
-  # prerelease = false
-  # match = case
-  # when (version == current) then :current
-  # when (dep.match?(dep.name, current)) then :update
-  # else nil
-  # end
-  # 
-  # # Not exact or updatable - we need to check if you're on a pre-release version
-  # if match.nil?
-  #   match = :obsolete
-  #   versions = versions.select { |v| v['prerelease']}.map { |v| v['number'] }
-  #   prerelease = versions.include?(version)
-  #   # If it's a prerelease determine what kind
-  #   if prerelease
-  #     prereleases += 1
-  #     current = versions.first # Big assumption
-  #     match = case
-  #     when (version == current) then :current
-  #     when (dep.match?(dep.name, current)) then :update
-  #     else :obsolete
-  #     end
-  #   end
-  # end
-  
-  # Got our result
-  # results[match] << SpecDiff.new(dep, spec, versions)
-  # [dep, spec, current, prerelease, version_date, current_date]  
   print "."
   STDOUT.flush
 end
@@ -164,9 +129,9 @@ end
 # Output Gem Ages
 puts "\nThe following Gems are:"
 ages = results.values.flatten.group_by(&:build_age)
-{:month1 => 'less than a month', :month6 => '6 months or less', :year1 => 'less than a year', :more => 'more than a year'}.each_pair do |key, value|
+{:none => 'No build dates available', :month1 => 'less than a month old', :month6 => 'less than 6 months old', :year1 => 'less than a year old', :more => 'more than a year old'}.each_pair do |key, value|
   next if ages[key].nil?
-  puts "-- #{value} old:"
+  puts "-- #{value}:"
   puts ages[key].map(&:to_s).join(', ')
 end
 

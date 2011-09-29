@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'gemfresh'
-  s.version     = '1.0.1'
+  s.version     = '1.0.2'
   s.platform    = Gem::Platform::RUBY
   s.authors     = ['Jon Williams']
   s.email       = ['jon@jonathannen.com']
@@ -13,5 +13,5 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ['.']
 
-  s.add_runtime_dependency 'bundler', '~> 1.0.18'
+  s.add_runtime_dependency 'bundler', '>= 1.0.10'
 end
