@@ -28,7 +28,7 @@ if ARGV.include?('--help')
   Check the bundler documentation (http://gembundler.com/) for more 
   information on Gemfiles.
   HELP
-  exit
+  exit 1
 end
 
 # Check for gemfile and lockfiles
@@ -36,11 +36,11 @@ gemfile = ARGV[0] || './Gemfile'
 lockfile = ARGV[1] || './Gemfile.lock'
 unless File.exists?(gemfile)
   puts "Couldn't find #{gemfile}.\nRun gemfresh with --help if you need more information."
-  exit
+  exit -1
 end
 unless File.exists?(lockfile)
   puts "Couldn't find #{lockfile}.\nRun gemfresh with --help if you need more information."
-  exit
+  exit -1
 end
 
 # Front for RubyGems
@@ -85,7 +85,7 @@ dep_specs = dep_specs.select { |dep, spec| !spec.nil? && (spec.source.class == B
 # Do we have any deps?
 if deps.empty?
   puts "No top-level RubyGem dependencies found in your Gemfile.\nRun gemfresh with --help if you need more information."
-  exit
+  exit true # Successful in that everything is theoretically up-to-date
 end
 
 # Iterate through the deps, checking the spec against the latest version
@@ -170,7 +170,8 @@ else
   end
 end
 
-
+# Exit code is determined by presence of obsolete gems
+exit results[:obsolete].empty?
 
 
 
