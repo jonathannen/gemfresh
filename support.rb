@@ -27,7 +27,7 @@ class RubyGemReader
   
   private
   # A persistent connection
-  def connection(host = Gem.host)
+  def connection
     return @connection unless @connection.nil?
     @connection = Net::HTTP.new self.uri.host, self.uri.port
     @connection.start    
