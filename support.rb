@@ -1,3 +1,42 @@
+# Front for RubyGems
+class SourceUnavailableError < StandardError; end
+class RubyGemReader
+  attr_reader :uri
+  
+  def initialize(uri)
+    @connection = nil
+    @uri = uri #.gsub('https://', 'http://') # No SSL for the moment
+    # puts @uri.inspect
+    # puts @uri.scheme
+  end
+  
+  # May raise SourceUnavailableError if the source can't be accessed
+  def get(path, data={}, content_type='application/x-www-form-urlencoded')
+    begin
+      request = Net::HTTP::Get.new(path)
+      request.add_field 'Connection', 'keep-alive'
+      request.add_field 'Keep-Alive', '30'
+      request.add_field 'User-Agent', 'github.com/jonathannen/gemfresh'
+      response = connection.request request
+      response.body  
+    rescue StandardError => se
+      # For now we assume this is an unavailable repo
+      raise SourceUnavailableError.new(se.message)
+    end
+  end
+  
+  private
+  # A persistent connection
+  def connection(host = Gem.host)
+    return @connection unless @connection.nil?
+    @connection = Net::HTTP.new self.uri.host, self.uri.port
+    @connection.start    
+    @connection
+  end
+end
+
+
+# A class to encapsulate the difference between gem states
 class SpecDiff < Struct.new(:dep, :spec, :gemdata, :versions)
   
   # Configure the diff

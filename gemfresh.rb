@@ -47,26 +47,6 @@ unless File.exists?(lockfile)
   exit -1
 end
 
-# Front for RubyGems
-class RubyGemReader < Struct.new('RubyGemReader', :uri)
-  def get(path, data={}, content_type='application/x-www-form-urlencoded')
-    request = Net::HTTP::Get.new(path)
-    request.add_field 'Connection', 'keep-alive'
-    request.add_field 'Keep-Alive', '30'
-    request.add_field 'User-Agent', 'github.com/jonathannen/gemfresh'
-    response = connection.request request
-    response.body  
-  end
-  private
-  # A persistent connection
-  def connection(host = Gem.host)
-    return @connection unless @connection.nil?
-    @connection = Net::HTTP.new self.uri.host, self.uri.port
-    @connection.start    
-    @connection
-  end
-end
-
 # Start in earnest
 puts "Checking the freshness of your Gemfile.\n"
 
@@ -81,6 +61,8 @@ sources = {}
 results = { :current => [], :update => [], :obsolete => [] }
 count = 0
 prereleases = 0
+unavailable = 0
+untracked = 0
 
 # Map dependencies to their specs, then select RubyGem sources
 dep_specs = deps.map { |dep| [dep, specs.find { |spec| spec.name == dep.name }] }
@@ -95,35 +77,48 @@ end
 # Iterate through the deps, checking the spec against the latest version
 print "Hitting up your RubyGems sources: "
 dep_specs.each do |dep, spec|
-  name = dep.name
-  # version = spec.version.to_s
+  begin
+    name = dep.name
   
-  # Get a connection to the rubygem repository, reusing if we can
-  remote = spec.source.remotes.first
-  next if remote.nil?
-  reader = sources[remote]
-  reader = sources[remote] = RubyGemReader.new(remote) if reader.nil?
+    # Get a connection to the rubygem repository, reusing if we can
+    remote = spec.source.remotes.first
+    next if remote.nil?
+    reader = sources[remote]
+    reader = sources[remote] = RubyGemReader.new(remote) if reader.nil?
   
-  # Get the RubyGems data
-  # lookup = RubyGems.get("/api/v1/gems/#{name}.yaml")
-  gemdata = reader.get("/api/v1/gems/#{name}.yaml")
-  gemdata = YAML.load(gemdata)
-
-  # Get the versions list as well
-  versions = reader.get("/api/v1/versions/#{name}.yaml")
-  versions = YAML.load(versions)
+    # Get the RubyGems data
+    # lookup = RubyGems.get("/api/v1/gems/#{name}.yaml")
+    gemdata = reader.get("/api/v1/gems/#{name}.yaml")
+    gemdata = YAML.load(gemdata)
+    
+    # Get the versions list as well
+    versions = reader.get("/api/v1/versions/#{name}.yaml")
+    versions = YAML.load(versions)
   
-  # Store the result as a diff object
-  diff = SpecDiff.new(dep, spec, gemdata, versions)
-  results[diff.classify] << diff
+    # No Gem Data or Version information? Not a versioned or tracked gem, so
+    # nothing we can deal with
+    next if !gemdata || !versions || gemdata['version'].nil?
   
-  # Stats
-  prereleases +=1 if diff.prerelease?
-  count += 1
-  print "."
+    # Store the result as a diff object
+    diff = SpecDiff.new(dep, spec, gemdata, versions)
+    results[diff.classify] << diff
+  
+    # Stats
+    prereleases +=1 if diff.prerelease?
+    count += 1
+    print "."
+  rescue SourceUnavailableError => sae
+    unavailable =+ 1
+    print "x"
+  end
   STDOUT.flush
 end
 puts " Done!"
+
+# Let the user know about prereleases
+if unavailable > 0
+  puts "\nCouldn't get data for #{unavailable} gem#{unavailable == 1 ? '' : 's'}. It might be the RubyGem source is down or unaccessible. Give it another try in a moment."
+end
 
 # Let the user know about prereleases
 if prereleases > 0
