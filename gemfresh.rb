@@ -112,7 +112,6 @@ dep_specs.each do |dep, spec|
   if !gemdata || !versions || gemdata['version'].nil?
     unavailable =+ 1
     print "x"
-    STDOUT.flush
  
   # Otherwise, all good - store as a diff and move on
   else
