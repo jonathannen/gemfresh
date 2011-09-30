@@ -77,40 +77,52 @@ end
 # Iterate through the deps, checking the spec against the latest version
 print "Hitting up your RubyGems sources: "
 dep_specs.each do |dep, spec|
-  begin
-    name = dep.name
-  
-    # Get a connection to the rubygem repository, reusing if we can
-    remote = spec.source.remotes.first
-    next if remote.nil?
-    reader = sources[remote]
-    reader = sources[remote] = RubyGemReader.new(remote) if reader.nil?
-  
-    # Get the RubyGems data
-    # lookup = RubyGems.get("/api/v1/gems/#{name}.yaml")
-    gemdata = reader.get("/api/v1/gems/#{name}.yaml")
-    gemdata = YAML.load(gemdata)
-    
-    # Get the versions list as well
-    versions = reader.get("/api/v1/versions/#{name}.yaml")
-    versions = YAML.load(versions)
-  
-    # No Gem Data or Version information? Not a versioned or tracked gem, so
-    # nothing we can deal with
-    next if !gemdata || !versions || gemdata['version'].nil?
-  
-    # Store the result as a diff object
+  name = dep.name
+
+  # Get a connection to the rubygem repository, reusing the source
+  # connection if we can. Any error and that source is marked unavailable.
+  gemdata = versions = false
+  spec.source.remotes.each do |remote|
+    begin 
+      next if remote.nil?
+      reader = sources[remote]
+      next if reader == :unavailable # Source previously marked unavailable
+      reader = sources[remote] = RubyGemReader.new(remote) if reader.nil?
+
+      # Get the RubyGems data
+      # lookup = RubyGems.get("/api/v1/gems/#{name}.yaml")
+      gemdata = reader.get("/api/v1/gems/#{name}.yaml")
+      gemdata = YAML.load(gemdata)
+
+      # Get the versions list as well
+      versions = reader.get("/api/v1/versions/#{name}.yaml")
+      versions = YAML.load(versions)
+      
+      # Break if we've got the data we need
+      break unless !gemdata || !versions
+            
+    rescue SourceUnavailableError => sae
+      # Mark source as unavailable
+      sources[remote] = :unavailable
+    end
+  end
+
+  # No Gem Data or Version information? Not a versioned or tracked gem, so
+  # nothing we can deal with
+  if !gemdata || !versions || gemdata['version'].nil?
+    unavailable =+ 1
+    print "x"
+    STDOUT.flush
+ 
+  # Otherwise, all good - store as a diff and move on
+  else
     diff = SpecDiff.new(dep, spec, gemdata, versions)
     results[diff.classify] << diff
-  
-    # Stats
     prereleases +=1 if diff.prerelease?
     count += 1
     print "."
-  rescue SourceUnavailableError => sae
-    unavailable =+ 1
-    print "x"
   end
+
   STDOUT.flush
 end
 puts " Done!"
