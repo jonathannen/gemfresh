@@ -93,7 +93,8 @@ dep_specs.each do |dep, spec|
       # lookup = RubyGems.get("/api/v1/gems/#{name}.yaml")
       gemdata = reader.get("/api/v1/gems/#{name}.yaml")
       gemdata = YAML.load(gemdata)
-
+      next if (gemdata && gemdata['version'].nil?)
+      
       # Get the versions list as well
       versions = reader.get("/api/v1/versions/#{name}.yaml")
       versions = YAML.load(versions)
