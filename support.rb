@@ -5,9 +5,7 @@ class RubyGemReader
   
   def initialize(uri)
     @connection = nil
-    @uri = uri #.gsub('https://', 'http://') # No SSL for the moment
-    # puts @uri.inspect
-    # puts @uri.scheme
+    @uri = uri
   end
   
   # May raise SourceUnavailableError if the source can't be accessed
@@ -30,7 +28,8 @@ class RubyGemReader
   def connection
     return @connection unless @connection.nil?
     @connection = Net::HTTP.new self.uri.host, self.uri.port
-    @connection.start    
+    @connection.use_ssl = (uri.scheme == 'https')
+    @connection.start 
     @connection
   end
 end
