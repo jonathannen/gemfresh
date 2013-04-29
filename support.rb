@@ -1,3 +1,5 @@
+require 'net/http'
+
 # Front for RubyGems
 class SourceUnavailableError < StandardError; end
 class RubyGemReader
@@ -5,7 +7,7 @@ class RubyGemReader
   
   def initialize(uri)
     @connection = nil
-    @uri = uri
+    @uri = uri.kind_of?(URI::Generic) ? uri : URI(uri.to_s)
   end
   
   # May raise SourceUnavailableError if the source can't be accessed
