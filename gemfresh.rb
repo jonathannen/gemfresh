@@ -1,34 +1,35 @@
+require 'yaml'
 require 'rubygems'
 require 'bundler'
 require 'time'
 require File.dirname(__FILE__) + '/support'
 
 # Handle ARGV
-if ARGV.include?('--help') 
+if ARGV.include?('--help')
   puts <<-HELP
   Usage:
     gemfresh [GEMFILE] [LOCKFILE]
-    
-  Both GEMFILE and LOCKFILE will default to "Gemfile" and "Gemfile.lock" in 
-  your current directory. Generally you'll simply invoke gemfresh from your 
+
+  Both GEMFILE and LOCKFILE will default to "Gemfile" and "Gemfile.lock" in
+  your current directory. Generally you'll simply invoke gemfresh from your
   Rails (or similar) project directory.
-    
+
   Gemfresh will list three categories of gems:
-    
+
     "Current" gems are up-to-date.
-    
+
     "Obsolete" gems have a newer version than the one specified in your Gemfile
-  
+
     "Updateable" gems have a newer version, and it is within the version in your Gemfile
     e.g. Gemfile:      '~> 2.2.0'
          Gemfile.lock: 2.2.1
          Latest:       2.2.2
     Running bundle update will attempt to update these gems.
 
-  Just because a gem is updateable or obsolete, doesn't mean it can be 
+  Just because a gem is updateable or obsolete, doesn't mean it can be
   updated. There might be dependencies that limit you to specific versions.
 
-  Check the bundler documentation (http://gembundler.com/) for more 
+  Check the bundler documentation (http://gembundler.com/) for more
   information on Gemfiles.
   HELP
   exit 1
@@ -82,7 +83,7 @@ dep_specs.each do |dep, spec|
   # connection if we can. Any error and that source is marked unavailable.
   gemdata = versions = false
   spec.source.remotes.each do |remote|
-    begin 
+    begin
       next if remote.nil?
       reader = sources[remote]
       next if reader == :unavailable # Source previously marked unavailable
@@ -93,14 +94,14 @@ dep_specs.each do |dep, spec|
       gemdata = reader.get("/api/v1/gems/#{name}.yaml")
       gemdata = YAML.load(gemdata)
       next if (gemdata && gemdata['version'].nil?)
-      
+
       # Get the versions list as well
       versions = reader.get("/api/v1/versions/#{name}.yaml")
       versions = YAML.load(versions)
-      
+
       # Break if we've got the data we need
       break unless !gemdata || !versions
-            
+
     rescue SourceUnavailableError => sae
       # Mark source as unavailable
       sources[remote] = :unavailable
@@ -112,7 +113,7 @@ dep_specs.each do |dep, spec|
   if !gemdata || !versions || gemdata['version'].nil?
     unavailable =+ 1
     print "x"
- 
+
   # Otherwise, all good - store as a diff and move on
   else
     diff = SpecDiff.new(dep, spec, gemdata, versions)
@@ -158,7 +159,7 @@ if results[:update].empty?
   puts "\nYou don't have any updatable gems."
 else
   puts "\nThe following gems are locked to older versions, but your Gemfile allows for the current version: "
-  results[:update].each do |diff| 
+  results[:update].each do |diff|
     puts "    #{diff}, with #{diff.dep.requirement} could allow #{diff.version_available}"
   end
   puts "Barring dependency issues, these gems could be updated to current using 'bundle update'."
@@ -175,8 +176,8 @@ else
 
     suggest = diff.suggest
     suggest = suggest.nil? ? '' : "Also consider version #{suggest}."
-    
-    puts "    #{diff} is now at #{diff.version_available}#{released} #{suggest}"    
+
+    puts "    #{diff} is now at #{diff.version_available}#{released} #{suggest}"
   end
 end
 
